@@ -1,44 +1,60 @@
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This is an example on how to change Recoil State from outside components. Currently it will only work with a single RecoilRoot, but it could be adapted to multiple in the future.
 
-## Available Scripts
+There are only two things to consider to integrate this solution into your project. 
 
-In the project directory, you can run:
+## Changes to the normal Recoil way 
 
-### `npm start`
+1. Use `<RecoilRootWithStore>` instead of `<RecoilRoot>`. 
+2. Use `connectedAtom` and `connectedSelector` instead of atom and selector.
+3. Now you can change your state by using a function called `updateConnectedValue` from anywhere you like. Which accepts the Atom/Selector you want to change and its new value.
 
-Runs the app in the development mode.<br />
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## How does it work
 
-The page will reload if you make edits.<br />
-You will also see any lint errors in the console.
+### ConnectedStore 
 
-### `npm test`
+The Connected Store is essentially a Dictionary. That maps Atoms/Selector's keys to a setter function (SetterOrUpdater<T> in Recoil). This way it can update any Atom passed to it, after it has obtained their setters (this is done in RecoilRootWithStore)
+  
+To add new Atoms/Selectors to the store we use the functions `connectedAtom` and `connectedSelector` which simply call Recoil's `atom` and `selector` but additionally adds them to the store. 
 
-Launches the test runner in the interactive watch mode.<br />
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+The `updateConnectedValue` function uses a singleton instance of the connectedStore to call its update funciton. Which in turn can retrieve the key of the passed atom and call the stored selector. 
 
-### `npm run build`
+```
+class ConnectedStore
+export function connectedSelector<T>(options: ReadWriteSelectorOptions<T>): RecoilState<T>
+export function connectedAtom<T>(options: AtomOptions<T>): RecoilState<T>
+export function updateConnectedValue<T>(state:RecoilState<T>,val:T)
+```
 
-Builds the app for production to the `build` folder.<br />
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### RecoilRootWithStore
 
-The build is minified and the filenames include the hashes.<br />
-Your app is ready to be deployed!
+In order for the ConnectedStore to be able to modify RecoilState (that is after all connected to a context, and hence the React tree) it needs to obtain setters.
+This happens in RecoilRootWithStore, which is simply a RecoilRoot but adds an additional small component that has only one function, to call the ConnectedStore and give it access to the Context. 
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```
+const RecoilStore:React.FC = (props)=>{
+	connectedStore.updateInContext(this);
+	return null;
+}
+const RecoilRootWithStore:React.FC = (props) => {
+	return (
+		<RecoilRoot>
+			<RecoilStore/>
+			{props.children}
+		</RecoilRoot>);
+}
+export default RecoilRootWithStore;
+```
 
-### `npm run eject`
+`updateInContext` uses the reference to the RecoilStore to call `useSetRecoilState` and obtain the setters. This needs to be done only once new Atoms are created. 
+(Technically it is using hooks outside of a class, but it is only the code that is sitting outside, "this" refers to the React Component not the ConnectedStore, so the hooks are initalized in the correct context and nobody gets hurt.)
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+@Todo: This will probably create some Problems with AtomFamilies (i.e. if atoms are dynamically added), but nothing that can't be worked around.
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## How to Test
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+This is a CreateReactApp 
+so 
+run ´npm install´ and then ´npm start´
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
+See index.tsx which is outside of RecoilRoot and is updating state. 
+See model.ts for defintion of the used Atoms and Selectors. 
