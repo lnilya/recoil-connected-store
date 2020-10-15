@@ -1,5 +1,4 @@
-
-import {connectedAtom, connectedSelector, updateConnectedValue} from "./ConnectedStore";
+import {connectedAtom, connectedSelector} from "./ConnectedStore";
 
 //An example Atom which stores a random number
 export const randomNumber = connectedAtom<number>({
@@ -15,20 +14,3 @@ export const negativeRandomNumber = connectedSelector<number>({
 		set(randomNumber, newValue);
 	}
 });
-
-
-
-
-
-//For Demo, we are updated a recoil value from outside of React.
-
-//Updating the Atom directly...
-setInterval(()=>{
-	updateConnectedValue(randomNumber,Math.random());
-},1000);
-
-//...or alternatively updating a Selector that works on this Atom
-// setInterval(()=>{
-// 	updateConnectedValue(negativeRandomNumber,Math.random());
-// },1000);
-
